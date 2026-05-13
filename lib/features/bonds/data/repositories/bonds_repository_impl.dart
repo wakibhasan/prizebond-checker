@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failure_mapper.dart';
 import '../../../../core/error/failures.dart';
+import '../../domain/entities/ad_view_intent.dart';
 import '../../domain/entities/bond.dart';
 import '../../domain/entities/bond_quota.dart';
 import '../../domain/entities/series.dart';
@@ -76,9 +77,25 @@ class BondsRepositoryImpl implements BondsRepository {
   }
 
   @override
-  Future<Either<Failure, int>> watchAdStub() async {
+  Future<Either<Failure, AdViewIntent>> registerAdView({
+    String adFormat = 'rewarded_interstitial',
+    String? adUnitId,
+  }) async {
     try {
-      final slots = await _remote.watchAdStub();
+      final intent = await _remote.registerAdView(
+        adFormat: adFormat,
+        adUnitId: adUnitId,
+      );
+      return Right(intent);
+    } catch (e) {
+      return Left(mapExceptionToFailure(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, int>> grantDevSlot() async {
+    try {
+      final slots = await _remote.grantDevSlot();
       return Right(slots);
     } catch (e) {
       return Left(mapExceptionToFailure(e));

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'config/env.dart';
@@ -23,6 +24,20 @@ Future<void> main() async {
   if (Env.googleSignInConfigured) {
     await GoogleSignIn.instance.initialize(serverClientId: Env.googleClientId);
   }
+  // Register dev phones as AdMob test devices. Test devices receive
+  // test-style ads even when the ad unit is a real one, and SSV callbacks
+  // still fire — the supported way to develop against real units without
+  // risking account suspension. Find new IDs in `flutter run` logs by
+  // grepping for `setTestDeviceIds(Arrays.asList(...))`.
+  await MobileAds.instance.updateRequestConfiguration(
+    RequestConfiguration(
+      testDeviceIds: const ['54C059B86639C9781A7FB98090C12720'],
+    ),
+  );
+  // Opens the AdMob SDK connection. Required before any BannerAd or
+  // RewardedInterstitialAd will load. The App ID it reads from
+  // AndroidManifest.xml has to be set before this runs.
+  await MobileAds.instance.initialize();
   runApp(const PrizeBondCheckerApp());
 }
 

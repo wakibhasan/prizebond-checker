@@ -39,9 +39,4 @@ class BondQuotaCubit extends Cubit<BondQuotaState> {
       clearError: true,
     ));
   }
-
-  Future<int> watchAd() async {
-    final result = await _repository.watchAdStub();
-    return result.fold((_) => 0, (slots) => slots);
-  }
 }

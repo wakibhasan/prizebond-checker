@@ -11,15 +11,17 @@ class BondQuotaModel extends BondQuota {
   });
 
   factory BondQuotaModel.fromJson(Map<String, dynamic> json) {
+    // Be lenient about missing fields. The 403 `quota_exceeded` response
+    // historically omitted some of these — defaulting to 0 keeps the
+    // parser from crashing the add-bond flow on an older backend.
+    int asInt(String key) => (json[key] as num?)?.toInt() ?? 0;
     return BondQuotaModel(
-      currentBonds: (json['current_bonds'] as num).toInt(),
-      bondQuota: (json['bond_quota'] as num).toInt(),
-      adViewsUncredited: (json['ad_views_uncredited'] as num).toInt(),
-      adViewsPerSlot: (json['ad_views_per_slot'] as num).toInt(),
-      adsNeededForNextSlot: (json['ads_needed_for_next_slot'] as num).toInt(),
-      // `wins_count` was added later — default to 0 if the server doesn't
-      // include it (e.g. an older 403 quota_exceeded payload).
-      winsCount: (json['wins_count'] as num?)?.toInt() ?? 0,
+      currentBonds: asInt('current_bonds'),
+      bondQuota: asInt('bond_quota'),
+      adViewsUncredited: asInt('ad_views_uncredited'),
+      adViewsPerSlot: asInt('ad_views_per_slot'),
+      adsNeededForNextSlot: asInt('ads_needed_for_next_slot'),
+      winsCount: asInt('wins_count'),
     );
   }
 }

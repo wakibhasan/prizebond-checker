@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/error/failures.dart';
+import '../entities/ad_view_intent.dart';
 import '../entities/bond.dart';
 import '../entities/bond_quota.dart';
 import '../entities/series.dart';
@@ -27,9 +28,17 @@ abstract class BondsRepository {
   Future<Either<Failure, Bond>> addBond({required String bondNumber});
   Future<Either<Failure, void>> deleteBond(int bondId);
 
-  /// Stub that imitates the rewarded-ad flow by hitting the dev-only
-  /// `/ad-views/dev-grant` endpoint. Returns the number of slots granted
-  /// by this single watch (0 if not enough verified views yet, 1 if it
-  /// completed a pair).
-  Future<Either<Failure, int>> watchAdStub();
+  /// Registers the intent to show a rewarded ad. Call this *before* loading
+  /// the AdMob ad — the returned identifiers must be set on the ad via
+  /// `ServerSideVerificationOptions` so AdMob can echo them back in the
+  /// SSV postback, letting the backend correlate the postback to the row.
+  Future<Either<Failure, AdViewIntent>> registerAdView({
+    String adFormat,
+    String? adUnitId,
+  });
+
+  /// Dev-only: hits `/ad-views/dev-grant` to bypass AdMob and exercise the
+  /// slot-grant pipeline directly. Returns slots granted (0 or 1).
+  /// UI gates this behind `Env.devLoginEnabled`.
+  Future<Either<Failure, int>> grantDevSlot();
 }
