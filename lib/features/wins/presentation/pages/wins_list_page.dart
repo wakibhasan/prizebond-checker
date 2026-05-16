@@ -51,30 +51,111 @@ class _LoadedList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final money = NumberFormat.decimalPattern();
     return ListView.separated(
-      padding: const EdgeInsets.only(top: 8, bottom: 24),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       itemCount: wins.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (context, i) {
-        final w = wins[i];
-        final scheme = Theme.of(context).colorScheme;
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: scheme.primaryContainer,
-            child: Icon(Icons.emoji_events, color: scheme.onPrimaryContainer),
-          ),
-          title: Text('৳ ${money.format(w.prizeAmount)}'),
-          subtitle: Text(
-            '${_rankLabel(w.prizeRank)}  •  '
-            '${w.bond?.seriesCodeBn ?? '—'} ${w.bond?.bondNumber ?? ''}\n'
-            'Draw #${w.draw?.no ?? '—'} on '
-            '${w.draw != null ? DateFormat.yMMMd().format(w.draw!.date) : '—'}'
-            '  •  Claim by ${DateFormat.yMMMd().format(w.claimWindowEndsAt)}',
-          ),
-          isThreeLine: true,
-        );
-      },
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (context, i) => _WinCard(win: wins[i]),
+    );
+  }
+}
+
+/// Rounded card for one win. Trophy avatar, prize amount as the title,
+/// rank pill, then a small two-line breakdown of bond/draw/claim window.
+class _WinCard extends StatelessWidget {
+  final Win win;
+  const _WinCard({required this.win});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final money = NumberFormat.decimalPattern();
+    final claimBy = DateFormat.yMMMd().format(win.claimWindowEndsAt);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: scheme.tertiaryContainer,
+              child: Icon(
+                Icons.emoji_events,
+                color: scheme.onTertiaryContainer,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '৳ ${money.format(win.prizeAmount)}',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                        ),
+                      ),
+                      _RankPill(rank: win.prizeRank),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${win.bond?.seriesCodeBn ?? '—'} '
+                    '${win.bond?.bondNumber ?? ''}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Draw #${win.draw?.no ?? '—'} on '
+                    '${win.draw != null ? DateFormat.yMMMd().format(win.draw!.date) : '—'}  •  '
+                    'Claim by $claimBy',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RankPill extends StatelessWidget {
+  final int rank;
+  const _RankPill({required this.rank});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        _rankLabel(rank),
+        style: TextStyle(
+          color: scheme.onPrimaryContainer,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 

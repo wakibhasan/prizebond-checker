@@ -34,6 +34,7 @@ class _BondsListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: BlocBuilder<BondsListCubit, BondsListState>(
         builder: (context, state) {
           return RefreshIndicator(
@@ -69,54 +70,37 @@ class _LoadedList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: const EdgeInsets.only(top: 8, bottom: 96),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
       itemCount: bonds.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, i) {
         final b = bonds[i];
-        return Dismissible(
-          key: ValueKey('bond-${b.id}'),
-          direction: DismissDirection.endToStart,
-          confirmDismiss: (_) => _confirmDelete(context),
-          onDismissed: (_) => _onDeleted(context, b),
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 24),
-            color: Theme.of(context).colorScheme.errorContainer,
-            child: Icon(
-              Icons.delete_outline,
-              color: Theme.of(context).colorScheme.onErrorContainer,
-            ),
-          ),
-          child: ListTile(
-            leading: CircleAvatar(
-              child: Text(
-                '${i + 1}',
-                style: const TextStyle(
-                  fontFeatures: [FontFeature.tabularFigures()],
-                ),
-              ),
-            ),
-            title: Text(
-              b.bondNumber,
-              style: const TextStyle(
-                fontFeatures: [FontFeature.tabularFigures()],
-                letterSpacing: 1.2,
-                fontSize: 18,
-              ),
-            ),
-            trailing: IconButton(
-              tooltip: 'Remove',
-              icon: const Icon(Icons.delete_outline),
-              color: Theme.of(context).colorScheme.error,
-              onPressed: () async {
-                final confirmed = await _confirmDelete(context);
-                if (confirmed == true && context.mounted) {
-                  _onDeleted(context, b);
-                }
-              },
-            ),
-          ),
+        return _BondCard(
+          index: i + 1,
+          bond: b,
+          onDelete: () => _onDelete(context, b),
+        );
+      },
+    );
+  }
+
+  Future<void> _onDelete(BuildContext context, Bond b) async {
+    final confirmed = await _confirmDelete(context);
+    if (confirmed != true || !context.mounted) return;
+
+    final cubit = context.read<BondsListCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await sl<BondsRepository>().deleteBond(b.id);
+    if (!context.mounted) return;
+    result.fold(
+      (f) {
+        messenger.showSnackBar(SnackBar(content: Text(f.message)));
+        cubit.load();
+      },
+      (_) {
+        cubit.load();
+        messenger.showSnackBar(
+          SnackBar(content: Text('Deleted bond ${b.bondNumber}')),
         );
       },
     );
@@ -141,23 +125,73 @@ class _LoadedList extends StatelessWidget {
       ),
     );
   }
+}
 
-  void _onDeleted(BuildContext context, Bond b) async {
-    final cubit = context.read<BondsListCubit>();
-    final messenger = ScaffoldMessenger.of(context);
-    final result = await sl<BondsRepository>().deleteBond(b.id);
-    if (!context.mounted) return;
-    result.fold(
-      (f) {
-        messenger.showSnackBar(SnackBar(content: Text(f.message)));
-        cubit.load();
-      },
-      (_) {
-        cubit.load();
-        messenger.showSnackBar(
-          SnackBar(content: Text('Deleted bond ${b.bondNumber}')),
-        );
-      },
+/// Rounded card row for one saved bond. Leading numbered avatar, bond
+/// number (tabular figures so the digits sit on the same column from row
+/// to row), trailing delete icon.
+class _BondCard extends StatelessWidget {
+  final int index;
+  final Bond bond;
+  final VoidCallback onDelete;
+
+  const _BondCard({
+    required this.index,
+    required this.bond,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: scheme.primaryContainer,
+              child: Text(
+                '$index',
+                style: TextStyle(
+                  color: scheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bond number',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    bond.bondNumber,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          letterSpacing: 1.1,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Remove',
+              icon: Icon(Icons.delete_outline, color: scheme.error),
+              onPressed: onDelete,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

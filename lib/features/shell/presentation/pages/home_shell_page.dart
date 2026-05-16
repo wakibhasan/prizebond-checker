@@ -4,12 +4,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/injection_container.dart';
 import '../../../../core/ads/banner_ad_host.dart';
 import '../../../../core/theme/theme_cubit.dart';
+import '../../../../core/widgets/floating_bottom_nav.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/presentation/pages/edit_profile_page.dart';
 import '../../../bonds/presentation/cubit/bond_quota_cubit.dart';
+import '../../../bonds/presentation/pages/add_bond_page.dart';
 import '../../../bonds/presentation/pages/bonds_list_page.dart';
 import '../../../draws/presentation/widgets/next_draw_card.dart';
 import '../../../faqs/presentation/pages/faqs_page.dart';
+import '../../../home/presentation/widgets/home_header.dart';
+import '../../../home/presentation/widgets/quick_actions_row.dart';
 import '../../../home/presentation/widgets/prize_pool_teaser_card.dart';
 import '../../../home/presentation/widgets/total_bonds_card.dart';
 import '../../../home/presentation/widgets/total_wins_card.dart';
@@ -25,134 +29,139 @@ class HomeShellPage extends StatefulWidget {
 class _HomeShellPageState extends State<HomeShellPage> {
   int _index = 0;
 
+  void _switchTo(int tab) {
+    if (tab < 0 || tab > 3) return;
+    setState(() => _index = tab);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final tabs = <_Tab>[
-      _Tab(
-        label: 'Home',
+    final navItems = const [
+      FloatingNavItem(
         icon: Icons.home_outlined,
         selectedIcon: Icons.home,
-        body: const _HomeTab(),
+        label: 'Home',
       ),
-      _Tab(
-        label: 'Bonds',
+      FloatingNavItem(
         icon: Icons.receipt_long_outlined,
         selectedIcon: Icons.receipt_long,
-        body: const BondsListPage(),
+        label: 'Bonds',
       ),
-      _Tab(
-        label: 'Wins',
+      FloatingNavItem(
         icon: Icons.emoji_events_outlined,
         selectedIcon: Icons.emoji_events,
-        body: const WinsListPage(),
+        label: 'Wins',
       ),
-      _Tab(
-        label: 'Profile',
+      FloatingNavItem(
         icon: Icons.person_outline,
         selectedIcon: Icons.person,
-        body: const _ProfileTab(),
+        label: 'Profile',
       ),
     ];
 
+    final bodies = <Widget>[
+      _HomeTab(onSwitchTab: _switchTo),
+      const _SectionScaffold(title: 'My Bonds', body: BondsListPage()),
+      const _SectionScaffold(title: 'My Wins', body: WinsListPage()),
+      const _SectionScaffold(title: 'Profile', body: _ProfileTab()),
+    ];
+
     return Scaffold(
-      appBar: _buildAppBar(context, tabs[_index].label),
-      body: tabs[_index].body,
+      body: SafeArea(bottom: false, child: bodies[_index]),
       bottomNavigationBar: Column(
-        // Stack the banner above the NavigationBar so it's persistent on
-        // every tab without each tab body needing its own slot.
         mainAxisSize: MainAxisSize.min,
         children: [
           const BannerAdHost(),
-          NavigationBar(
-            selectedIndex: _index,
-            onDestinationSelected: (i) => setState(() => _index = i),
-            destinations: tabs
-                .map((t) => NavigationDestination(
-                      icon: Icon(t.icon),
-                      selectedIcon: Icon(t.selectedIcon),
-                      label: t.label,
-                    ))
-                .toList(),
+          FloatingBottomNav(
+            items: navItems,
+            currentIndex: _index,
+            onTap: _switchTo,
           ),
         ],
       ),
     );
   }
+}
 
-  /// Home tab gets a personalised greeting in the app bar
-  /// (`স্বাগতম, [name]`). Other tabs show their tab label.
-  PreferredSizeWidget _buildAppBar(BuildContext context, String fallbackLabel) {
-    if (_index != 0) {
-      return AppBar(title: Text(fallbackLabel));
-    }
-    return AppBar(
-      title: BlocBuilder<AuthCubit, AuthState>(
-        buildWhen: (a, b) => a.user?.name != b.user?.name,
-        builder: (context, state) {
-          final name = state.user?.name;
-          if (name == null || name.isEmpty) {
-            return const Text('স্বাগতম');
-          }
-          return RichText(
-            textAlign: TextAlign.center,
-            text: TextSpan(
-              style: Theme.of(context).appBarTheme.titleTextStyle ??
-                  Theme.of(context).textTheme.titleLarge,
-              children: [
-                const TextSpan(
-                  text: 'স্বাগতম, ',
-                  style: TextStyle(fontWeight: FontWeight.normal),
+/// Thin scaffold wrapper for non-home tabs: shows the section title in a
+/// consistent place (above the body, no AppBar bar) and lets the inner
+/// page focus on its content. Keeps visual rhythm consistent across tabs.
+class _SectionScaffold extends StatelessWidget {
+  final String title;
+  final Widget body;
+
+  const _SectionScaffold({required this.title, required this.body});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
-                TextSpan(
-                  text: name,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+          ),
+        ),
+        Expanded(child: body),
+      ],
     );
   }
 }
 
-class _Tab {
-  final String label;
-  final IconData icon;
-  final IconData selectedIcon;
-  final Widget body;
-  const _Tab({
-    required this.label,
-    required this.icon,
-    required this.selectedIcon,
-    required this.body,
-  });
-}
-
 class _HomeTab extends StatelessWidget {
-  const _HomeTab();
+  final ValueChanged<int> onSwitchTab;
+
+  const _HomeTab({required this.onSwitchTab});
 
   @override
   Widget build(BuildContext context) {
-    // The greeting + user name live in the AppBar — see _buildAppBar in
-    // _HomeShellPageState. The body is the dashboard: next draw, total
-    // bonds, and the prize-pool teaser. BondQuotaCubit is provided here
-    // so TotalBondsCard (and any future quota-aware tile) can read it.
     return BlocProvider<BondQuotaCubit>(
       create: (_) => sl<BondQuotaCubit>()..refresh(),
       child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: const [
-          NextDrawCard(),
-          SizedBox(height: 12),
-          TotalBondsCard(),
-          // TotalWinsCard renders SizedBox.shrink() when winsCount == 0,
-          // so nothing appears on the dashboard until the user actually
-          // has a win — no "0 wins" tile to upset anyone.
-          SizedBox(height: 12),
-          TotalWinsCard(),
-          SizedBox(height: 12),
-          PrizePoolTeaserCard(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        children: [
+          const HomeHeader(),
+          const SizedBox(height: 24),
+          const NextDrawCard(),
+          const SizedBox(height: 20),
+          QuickActionsRow(
+            actions: [
+              QuickAction(
+                icon: Icons.add,
+                label: 'Add Bond',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AddBondPage()),
+                ),
+              ),
+              QuickAction(
+                icon: Icons.receipt_long_outlined,
+                label: 'My Bonds',
+                onTap: () => onSwitchTab(1),
+              ),
+              QuickAction(
+                icon: Icons.emoji_events_outlined,
+                label: 'My Wins',
+                onTap: () => onSwitchTab(2),
+              ),
+              QuickAction(
+                icon: Icons.help_outline,
+                label: 'FAQs',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const FaqsPage()),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const TotalBondsCard(),
+          const SizedBox(height: 12),
+          const TotalWinsCard(),
+          const SizedBox(height: 12),
+          const PrizePoolTeaserCard(),
         ],
       ),
     );
@@ -168,48 +177,57 @@ class _ProfileTab extends StatelessWidget {
       builder: (context, state) {
         final user = state.user;
         return ListView(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           children: [
-            ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: const Text('Name'),
-              subtitle: Text(user?.name ?? '—'),
+            _InfoCard(
+              tiles: [
+                _InfoTile(
+                  icon: Icons.person_outline,
+                  label: 'Name',
+                  value: user?.name ?? '—',
+                ),
+                _InfoTile(
+                  icon: Icons.email_outlined,
+                  label: 'Email',
+                  value: user?.email ?? '—',
+                ),
+                _InfoTile(
+                  icon: Icons.phone_outlined,
+                  label: 'Mobile',
+                  value: user?.mobile ?? '—',
+                ),
+                _InfoTile(
+                  icon: Icons.bookmark_outline,
+                  label: 'Bond quota',
+                  value: '${user?.bondQuota ?? '—'} slots',
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.email_outlined),
-              title: const Text('Email'),
-              subtitle: Text(user?.email ?? '—'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.phone_outlined),
-              title: const Text('Mobile'),
-              subtitle: Text(user?.mobile ?? '—'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.bookmark_outline),
-              title: const Text('Bond quota'),
-              subtitle: Text('${user?.bondQuota ?? '—'} slots'),
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('Edit profile'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const EditProfilePage()),
-              ),
-            ),
-            const _ThemeTile(),
-            ListTile(
-              leading: const Icon(Icons.help_outline),
-              title: const Text('FAQs'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const FaqsPage()),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Sign out'),
-              onTap: () => context.read<AuthCubit>().signOut(),
+            const SizedBox(height: 16),
+            _ActionsCard(
+              tiles: [
+                _ActionTile(
+                  icon: Icons.edit_outlined,
+                  label: 'Edit profile',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const EditProfilePage()),
+                  ),
+                ),
+                const _ThemeActionTile(),
+                _ActionTile(
+                  icon: Icons.help_outline,
+                  label: 'FAQs',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const FaqsPage()),
+                  ),
+                ),
+                _ActionTile(
+                  icon: Icons.logout,
+                  label: 'Sign out',
+                  destructive: true,
+                  onTap: () => context.read<AuthCubit>().signOut(),
+                ),
+              ],
             ),
           ],
         );
@@ -218,18 +236,115 @@ class _ProfileTab extends StatelessWidget {
   }
 }
 
-class _ThemeTile extends StatelessWidget {
-  const _ThemeTile();
+class _InfoCard extends StatelessWidget {
+  final List<_InfoTile> tiles;
+  const _InfoCard({required this.tiles});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          children: [
+            for (var i = 0; i < tiles.length; i++) ...[
+              tiles[i],
+              if (i < tiles.length - 1) const Divider(indent: 56, endIndent: 16),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListTile(
+      leading: Icon(icon, color: scheme.primary),
+      title: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+      subtitle: Text(
+        value,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+      ),
+    );
+  }
+}
+
+class _ActionsCard extends StatelessWidget {
+  final List<Widget> tiles;
+  const _ActionsCard({required this.tiles});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(children: tiles),
+      ),
+    );
+  }
+}
+
+class _ActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool destructive;
+
+  const _ActionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.destructive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = destructive ? scheme.error : scheme.onSurface;
+    return ListTile(
+      leading: Icon(icon, color: destructive ? scheme.error : scheme.primary),
+      title: Text(
+        label,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: color),
+      ),
+      trailing: Icon(Icons.chevron_right, color: scheme.outline),
+      onTap: onTap,
+    );
+  }
+}
+
+class _ThemeActionTile extends StatelessWidget {
+  const _ThemeActionTile();
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ThemeCubit, ThemeMode>(
       builder: (context, mode) {
+        final scheme = Theme.of(context).colorScheme;
         return ListTile(
-          leading: Icon(_iconFor(mode)),
-          title: const Text('Theme'),
+          leading: Icon(_iconFor(mode), color: scheme.primary),
+          title: Text(
+            'Theme',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
           subtitle: Text(_labelFor(mode)),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: Icon(Icons.chevron_right, color: scheme.outline),
           onTap: () => _openChooser(context),
         );
       },
@@ -273,7 +388,7 @@ class _ThemeTile extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 'Theme',
                 style: Theme.of(sheetCtx).textTheme.titleMedium,
@@ -285,7 +400,7 @@ class _ThemeTile extends StatelessWidget {
                   title: Text(_labelFor(option)),
                   secondary: Icon(_iconFor(option)),
                 ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
             ],
           ),
         ),

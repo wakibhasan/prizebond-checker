@@ -5,11 +5,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart' show DateFormat;
 
 import '../../../../config/injection_container.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/next_draw.dart';
 import '../cubit/next_draw_cubit.dart';
 
 /// Hero card for the home tab. Shows the next anticipated draw and a
 /// live D/H/M/S countdown that ticks every second while mounted.
+///
+/// Rendered as a deep-primary gradient panel so it reads as the page's
+/// focal point — the rest of the home tab uses lighter surface cards.
 class NextDrawCard extends StatelessWidget {
   const NextDrawCard({super.key});
 
@@ -30,12 +34,27 @@ class _NextDrawCardView extends StatelessWidget {
     return BlocBuilder<NextDrawCubit, NextDrawState>(
       builder: (context, state) {
         final scheme = Theme.of(context).colorScheme;
-        return Card(
-          color: scheme.primaryContainer,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: _content(context, state, scheme),
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                scheme.primary,
+                Color.lerp(scheme.primary, Colors.black, 0.18) ?? scheme.primary,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+            boxShadow: [
+              BoxShadow(
+                color: scheme.primary.withValues(alpha: 0.25),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
+          padding: const EdgeInsets.all(20),
+          child: _content(context, state, scheme),
         );
       },
     );
@@ -50,7 +69,10 @@ class _NextDrawCardView extends StatelessWidget {
           children: [
             _heading(context, scheme, 'Next draw'),
             const SizedBox(height: 16),
-            const LinearProgressIndicator(),
+            LinearProgressIndicator(
+              backgroundColor: scheme.onPrimary.withValues(alpha: 0.2),
+              valueColor: AlwaysStoppedAnimation(scheme.onPrimary),
+            ),
           ],
         );
 
@@ -62,7 +84,7 @@ class _NextDrawCardView extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               state.errorMessage ?? 'Could not load next draw.',
-              style: TextStyle(color: scheme.error),
+              style: TextStyle(color: scheme.onPrimary),
             ),
           ],
         );
@@ -75,12 +97,12 @@ class _NextDrawCardView extends StatelessWidget {
   Widget _heading(BuildContext context, ColorScheme scheme, String label) {
     return Row(
       children: [
-        Icon(Icons.event_outlined, color: scheme.onPrimaryContainer),
+        Icon(Icons.event_outlined, color: scheme.onPrimary, size: 18),
         const SizedBox(width: 8),
         Text(
           label,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: scheme.onPrimaryContainer,
+                color: scheme.onPrimary,
               ),
         ),
       ],
@@ -102,21 +124,28 @@ class _LoadedContent extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.event_outlined, color: scheme.onPrimaryContainer),
+            Icon(Icons.event_outlined, color: scheme.onPrimary, size: 18),
             const SizedBox(width: 8),
             Text(
               draw.drawNo != null ? 'Next draw — #${draw.drawNo}' : 'Next draw',
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: scheme.onPrimaryContainer,
+                    color: scheme.onPrimary,
                   ),
             ),
             const Spacer(),
             if (draw.isEstimated)
-              Text(
-                'estimated',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: scheme.onPrimary.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'estimated',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: scheme.onPrimary.withValues(alpha: 0.85),
+                      ),
+                ),
               ),
           ],
         ),
@@ -125,8 +154,8 @@ class _LoadedContent extends StatelessWidget {
           dateText,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: scheme.onPrimaryContainer,
-                fontWeight: FontWeight.w600,
+                color: scheme.onPrimary,
+                fontWeight: FontWeight.w700,
               ),
         ),
         if (draw.banglaDateLabel != null) ...[
@@ -135,7 +164,7 @@ class _LoadedContent extends StatelessWidget {
             draw.banglaDateLabel!,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onPrimaryContainer.withValues(alpha: 0.8),
+                  color: scheme.onPrimary.withValues(alpha: 0.8),
                 ),
           ),
         ],
@@ -146,9 +175,8 @@ class _LoadedContent extends StatelessWidget {
   }
 }
 
-/// Stateful countdown that updates every second. Shows four pills:
-/// days, hours, minutes, seconds. When the target is in the past it
-/// flips to a "Today!" banner.
+/// Stateful countdown that updates every second. Each unit (days, hours,
+/// minutes, seconds) is its own pill so the rhythm reads as a digital clock.
 class _Countdown extends StatefulWidget {
   final DateTime target;
   final ColorScheme scheme;
@@ -197,7 +225,7 @@ class _CountdownState extends State<_Countdown> {
         child: Text(
           'Today!',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: widget.scheme.onPrimaryContainer,
+                color: widget.scheme.onPrimary,
                 fontWeight: FontWeight.w700,
               ),
         ),
@@ -210,22 +238,19 @@ class _CountdownState extends State<_Countdown> {
     final seconds = _remaining.inSeconds.remainder(60);
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         _Segment(value: days.toString(), label: 'days', scheme: widget.scheme),
-        _Separator(scheme: widget.scheme),
         _Segment(
           value: hours.toString().padLeft(2, '0'),
           label: 'hrs',
           scheme: widget.scheme,
         ),
-        _Separator(scheme: widget.scheme),
         _Segment(
           value: minutes.toString().padLeft(2, '0'),
           label: 'min',
           scheme: widget.scheme,
         ),
-        _Separator(scheme: widget.scheme),
         _Segment(
           value: seconds.toString().padLeft(2, '0'),
           label: 'sec',
@@ -244,45 +269,29 @@ class _Segment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 56,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: scheme.onPrimary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         children: [
           Text(
             value,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: scheme.onPrimaryContainer,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: scheme.onPrimary,
                   fontWeight: FontWeight.w700,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
           ),
-          const SizedBox(height: 2),
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
+                  color: scheme.onPrimary.withValues(alpha: 0.8),
                 ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _Separator extends StatelessWidget {
-  final ColorScheme scheme;
-  const _Separator({required this.scheme});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Text(
-        ':',
-        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: scheme.onPrimaryContainer.withValues(alpha: 0.5),
-              fontWeight: FontWeight.w400,
-            ),
       ),
     );
   }
